@@ -1,12 +1,16 @@
 :root {
-    --bg-dark: #0f1115;
-    --bg-card: #181b20;
-    --bg-input: #22262e;
-    --phd-green: #84cc16;
-    --phd-green-hover: #65a30d;
-    --text-main: #f3f4f6;
-    --text-muted: #9ca3af;
-    --border-color: #2e3440;
+    --bg-dark: #080b10;
+    --bg-card: #111a29;
+    --bg-input: #0a111c;
+    --phd-blue: #203d68;
+    --phd-blue-deep: #0c1523;
+    --phd-yellow: #ffe600;
+    --phd-yellow-hover: #ead300;
+    --phd-green: var(--phd-yellow);
+    --phd-green-hover: var(--phd-yellow-hover);
+    --text-main: #f3f5f8;
+    --text-muted: #a3afc0;
+    --border-color: #2a374a;
     --danger: #ef4444;
 }
 
@@ -22,12 +26,13 @@ body {
     color: var(--text-main);
     line-height: 1.5;
     padding-bottom: 40px;
+    min-height: 100vh;
 }
 
 .navbar {
-    background-color: #090a0d;
-    border-bottom: 2px solid var(--phd-green);
-    padding: 14px 20px;
+    background-color: #05070a;
+    border-bottom: 4px solid var(--phd-yellow);
+    padding: 10px max(20px, calc((100% - 1120px) / 2));
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -37,51 +42,64 @@ body {
 }
 
 .brand {
-    font-size: 1.3rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.05rem;
     font-weight: 800;
-    letter-spacing: 1px;
     color: #fff;
     text-decoration: none;
+    letter-spacing: 0.06em;
 }
 
 .brand span {
-    color: var(--phd-green);
+    color: var(--phd-yellow);
+}
+
+.brand-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    border-radius: 50%;
 }
 
 .nav-links a {
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.78);
     text-decoration: none;
     margin-left: 16px;
     font-size: 0.9rem;
     font-weight: 600;
+    transition: color 0.2s ease;
 }
 
 .nav-links a:hover {
-    color: var(--phd-green);
+    color: var(--phd-yellow);
 }
 
 .container {
-    max-width: 960px;
-    margin: 20px auto;
-    padding: 0 16px;
+    max-width: 1120px;
+    margin: 32px auto;
+    padding: 0 20px;
 }
 
 .card {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
+    border-radius: 16px;
+    padding: 26px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
 h1, h2, h3 {
     margin-bottom: 12px;
+    color: #f3f5f8;
 }
 
 h2 {
     font-size: 1.2rem;
-    border-left: 4px solid var(--phd-green);
-    padding-left: 10px;
+    border-left: 4px solid var(--phd-yellow);
+    padding: 3px 0 3px 12px;
 }
 
 .grid-2 {
@@ -123,21 +141,23 @@ input, select, textarea {
     border-radius: 6px;
     font-size: 0.95rem;
     width: 100%;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: var(--phd-green);
+    border-color: #5378ad;
+    box-shadow: 0 0 0 3px rgba(83, 120, 173, 0.2);
 }
 
 .btn {
     display: inline-block;
     background-color: var(--phd-green);
-    color: #090a0d;
+    color: var(--phd-blue-deep);
     font-weight: 700;
     padding: 11px 18px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
     text-decoration: none;
     text-align: center;
@@ -147,17 +167,19 @@ input:focus, select:focus, textarea:focus {
 
 .btn:hover {
     background-color: var(--phd-green-hover);
+    transform: translateY(-1px);
 }
 
 .btn-outline {
     background-color: transparent;
-    border: 1px solid var(--phd-green);
-    color: var(--phd-green);
+    border: 1px solid #536783;
+    color: #e2e8f0;
 }
 
 .btn-outline:hover {
-    background-color: var(--phd-green);
-    color: #090a0d;
+    background-color: var(--phd-blue);
+    color: #fff;
+    border-color: var(--phd-blue);
 }
 
 .btn-block {
@@ -170,7 +192,7 @@ input:focus, select:focus, textarea:focus {
     margin-bottom: 16px;
     background-color: rgba(239, 68, 68, 0.15);
     border: 1px solid var(--danger);
-    color: #fca5a5;
+    color: #fecaca;
 }
 
 /* Abas da Ficha (Mobile-Friendly) */
@@ -178,7 +200,7 @@ input:focus, select:focus, textarea:focus {
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     padding-bottom: 4px;
 }
 
@@ -195,9 +217,9 @@ input:focus, select:focus, textarea:focus {
 }
 
 .tab-btn.active {
-    background-color: var(--phd-green);
-    color: #090a0d;
-    border-color: var(--phd-green);
+    background-color: var(--phd-blue);
+    color: #fff;
+    border-color: var(--phd-blue);
 }
 
 .tab-content {
@@ -212,11 +234,11 @@ input:focus, select:focus, textarea:focus {
 .live-metrics {
     display: flex;
     justify-content: space-around;
-    background-color: #111317;
-    border: 1px solid var(--phd-green);
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 16px;
+    background-color: #0b1220;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
     text-align: center;
 }
 
@@ -228,7 +250,7 @@ input:focus, select:focus, textarea:focus {
 
 .metric-box strong {
     font-size: 1.2rem;
-    color: var(--phd-green);
+    color: var(--phd-yellow);
 }
 
 /* Lista de Alunos */
@@ -236,7 +258,7 @@ input:focus, select:focus, textarea:focus {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 0;
+    padding: 16px 0;
     border-bottom: 1px solid var(--border-color);
     gap: 10px;
 }
@@ -251,4 +273,80 @@ input:focus, select:focus, textarea:focus {
     border-radius: 12px;
     display: inline-block;
     margin: 16px 0;
+}
+
+.login-card {
+    max-width: 420px;
+    margin: 56px auto;
+    padding: 34px;
+}
+
+.login-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 26px;
+    text-align: center;
+}
+
+.login-logo {
+    width: 104px;
+    height: 104px;
+    object-fit: contain;
+    border-radius: 50%;
+    margin-bottom: 14px;
+}
+
+.login-brand h1 {
+    margin-bottom: 4px;
+}
+
+.login-brand p {
+    color: var(--text-muted);
+}
+
+.alert {
+    background-color: rgba(127, 29, 29, 0.28);
+    border-color: #9f3a3a;
+    color: #fecaca;
+}
+
+@media (max-width: 600px) {
+    .navbar {
+        padding: 10px 16px;
+    }
+
+    .container {
+        margin: 20px auto;
+        padding: 0 14px;
+    }
+
+    .card {
+        padding: 20px;
+        border-radius: 13px;
+    }
+
+    .brand {
+        gap: 8px;
+        font-size: 0.9rem;
+    }
+
+    .brand-logo {
+        width: 42px;
+        height: 42px;
+    }
+
+    .nav-links a {
+        margin-left: 10px;
+    }
+
+    .aluno-item {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .login-card {
+        margin: 32px auto;
+        padding: 26px 20px;
+    }
 }

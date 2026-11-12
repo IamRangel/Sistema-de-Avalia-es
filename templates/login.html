@@ -1,8 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card" style="max-width: 400px; margin: 60px auto;">
-    <h1 style="text-align: center;">PH.D <span style="color: var(--phd-green);">SPORTS</span></h1>
-    <p style="text-align: center; color: var(--text-muted); margin-bottom: 20px;">Sistema de Avaliação Física</p>
+<div class="card login-card">
+    <div class="login-brand">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="PH.D Sports" class="login-logo">
+        <h1>Sistema de Avaliação</h1>
+        <p>PH.D Sports</p>
+    </div>
     <form method="POST">
         <div class="form-group">
             <label>Usuário</label>

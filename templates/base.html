@@ -9,7 +9,10 @@
 <body>
     {% if session.get('logged_in') %}
     <nav class="navbar">
-        <a href="{{ url_for('dashboard') }}" class="brand">PH.D <span>SPORTS</span></a>
+        <a href="{{ url_for('dashboard') }}" class="brand">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="PH.D Sports" class="brand-logo">
+            <span>AVALIAÇÃO<br>FÍSICA</span>
+        </a>
         <div class="nav-links">
             <a href="{{ url_for('dashboard') }}">Alunos</a>
             <a href="{{ url_for('logout') }}">Sair</a>
