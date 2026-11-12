@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <h1 style="margin-bottom: 4px;">{{ aluno.nome }}</h1>
+        <p style="color: var(--text-muted);">
+            {{ aluno.idade }} anos • {{ 'Masculino' if aluno.sexo == 'M' else 'Feminino' }}
+            {% if aluno.telefone %} • {{ aluno.telefone }}{% endif %}
+        </p>
+    </div>
+    <a href="{{ url_for('nova_avaliacao', aluno_id=aluno.id) }}" class="btn">+ Nova Reavaliação</a>
+</div>
+
+<div class="card">
+    <h2>Histórico de Avaliações</h2>
+    {% if aluno.avaliacoes %}
+        {% for av in aluno.avaliacoes %}
+        <div class="aluno-item">
+            <div>
+                <strong>{{ av.data_avaliacao.strftime('%d/%m/%Y às %H:%M') }}</strong>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    Peso: {{ av.peso }} kg • IMC: {{ av.imc }} ({{ av.classificacao_imc }})
+                    {% if av.percentual_gordura %} • Gordura: {{ av.percentual_gordura }}%{% endif %}
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <a href="{{ url_for('resultado_avaliacao', token=av.token) }}" class="btn btn-outline">QR Code</a>
+                <a href="{{ url_for('baixar_pdf_publico', token=av.token) }}" class="btn">PDF</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color: var(--text-muted);">Este aluno ainda não possui avaliações registradas.</p>
+    {% endif %}
+</div>
+{% endblock %}

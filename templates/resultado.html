@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="text-align: center;">
+    <h1 style="color: var(--phd-green);">Avaliação Concluída!</h1>
+    <p style="color: var(--text-muted);">Peça para <strong>{{ av.aluno.nome }}</strong> apontar a câmera do celular para baixar o PDF:</p>
+
+    <div class="qr-box">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code da Avaliação" style="width: 220px; height: 220px; display: block;">
+    </div>
+
+    <div class="live-metrics" style="max-width: 500px; margin: 12px auto;">
+        <div class="metric-box">
+            <span>IMC</span>
+            <strong>{{ av.imc }}</strong>
+        </div>
+        <div class="metric-box">
+            <span>% GORDURA</span>
+            <strong>{{ av.percentual_gordura ~ '%' if av.percentual_gordura else 'N/I' }}</strong>
+        </div>
+        <div class="metric-box">
+            <span>MASSA MAGRA</span>
+            <strong>{{ av.massa_magra ~ ' kg' if av.massa_magra else 'N/I' }}</strong>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
+        <a href="{{ url_for('baixar_pdf_publico', token=av.token) }}" class="btn">Baixar PDF Agora</a>
+        <a href="{{ url_for('perfil_aluno', aluno_id=av.aluno.id) }}" class="btn btn-outline">Ver Histórico do Aluno</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Voltar ao Início</a>
+    </div>
+</div>
+{% endblock %}

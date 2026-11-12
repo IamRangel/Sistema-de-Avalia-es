@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block content %}
+<input type="hidden" id="aluno-sexo" value="{{ aluno.sexo }}">
+<input type="hidden" id="aluno-idade" value="{{ aluno.idade }}">
+
+<div class="card">
+    <h1 style="font-size: 1.3rem;">Avaliação Física: <span style="color: var(--phd-green);">{{ aluno.nome }}</span></h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 14px;">
+        {{ aluno.idade }} anos • {{ 'Masculino' if aluno.sexo == 'M' else 'Feminino' }}
+        {% if ultima_av %} • Última avaliação em {{ ultima_av.data_avaliacao.strftime('%d/%m/%Y') }}{% endif %}
+    </p>
+
+    <div class="live-metrics">
+        <div class="metric-box">
+            <span>IMC ESTIMADO</span>
+            <strong id="live-imc">--</strong>
+        </div>
+        <div class="metric-box">
+            <span>% GORDURA (POLLOCK 7)</span>
+            <strong id="live-bf">--</strong>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button type="button" class="tab-btn active" onclick="openTab(event, 'tab-anamnese')">1. Anamnese</button>
+        <button type="button" class="tab-btn" onclick="openTab(event, 'tab-circ')">2. Circunferências</button>
+        <button type="button" class="tab-btn" onclick="openTab(event, 'tab-dobras')">3. Dobras & Flex</button>
+    </div>
+
+    <form method="POST">
+        <!-- ABA 1: ANAMNESE -->
+        <div id="tab-anamnese" class="tab-content active">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Peso (kg) *</label>
+                    <input type="number" step="0.1" name="peso" id="peso" required placeholder="Ex: 78.5">
+                </div>
+                <div class="form-group">
+                    <label>Altura (m) *</label>
+                    <input type="number" step="0.01" name="altura" id="altura" value="{{ ultima_av.altura if ultima_av else '' }}" required placeholder="Ex: 1.75">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Objetivo</label>
+                    <input type="text" name="objetivo" value="{{ ultima_av.objetivo if ultima_av and ultima_av.objetivo else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Histórico Anterior de Atividade</label>
+                    <input type="text" name="historico_atividade" value="{{ ultima_av.historico_atividade if ultima_av and ultima_av.historico_atividade else '' }}">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Doenças</label>
+                    <input type="text" name="doencas" value="{{ ultima_av.doencas if ultima_av and ultima_av.doencas else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Remédios</label>
+                    <input type="text" name="remedios" value="{{ ultima_av.remedios if ultima_av and ultima_av.remedios else '' }}">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Histórico Familiar de Doenças</label>
+                    <input type="text" name="historico_familiar" value="{{ ultima_av.historico_familiar if ultima_av and ultima_av.historico_familiar else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Lesões</label>
+                    <input type="text" name="lesoes" value="{{ ultima_av.lesoes if ultima_av and ultima_av.lesoes else '' }}">
+                </div>
+            </div>
+            <div class="grid-3">
+                <div class="form-group">
+                    <label>Profissão</label>
+                    <input type="text" name="profissao" value="{{ ultima_av.profissao if ultima_av and ultima_av.profissao else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Alimentação</label>
+                    <input type="text" name="alimentacao" value="{{ ultima_av.alimentacao if ultima_av and ultima_av.alimentacao else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Sono</label>
+                    <input type="text" name="sono" value="{{ ultima_av.sono if ultima_av and ultima_av.sono else '' }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Disponibilidade para Treino</label>
+                <input type="text" name="disponibilidade_treino" value="{{ ultima_av.disponibilidade_treino if ultima_av and ultima_av.disponibilidade_treino else '' }}">
+            </div>
+        </div>
+
+        <!-- ABA 2: CIRCUNFERÊNCIAS -->
+        <div id="tab-circ" class="tab-content">
+            <h3>Tronco (cm)</h3>
+            <div class="grid-3">
+                <div class="form-group"><label>Pescoço</label><input type="number" step="0.1" name="pescoco"></div>
+                <div class="form-group"><label>Ombro</label><input type="number" step="0.1" name="ombro"></div>
+                <div class="form-group"><label>Tórax Inspirado</label><input type="number" step="0.1" name="torax_inspirado"></div>
+                <div class="form-group"><label>Tórax Expirado</label><input type="number" step="0.1" name="torax_expirado"></div>
+                <div class="form-group"><label>Peito</label><input type="number" step="0.1" name="peito"></div>
+                <div class="form-group"><label>Cintura</label><input type="number" step="0.1" name="cintura"></div>
+                <div class="form-group"><label>Abdômen</label><input type="number" step="0.1" name="abdomen"></div>
+                <div class="form-group"><label>Quadril</label><input type="number" step="0.1" name="quadril"></div>
+            </div>
+
+            <h3 style="margin-top: 14px;">Membros Inferiores (cm)</h3>
+            <div class="grid-3">
+                <div class="form-group"><label>Coxa E. Relaxada</label><input type="number" step="0.1" name="coxa_e_relaxada"></div>
+                <div class="form-group"><label>Coxa E. Contraída</label><input type="number" step="0.1" name="coxa_e_contraida"></div>
+                <div class="form-group"><label>Coxa D. Relaxada</label><input type="number" step="0.1" name="coxa_d_relaxada"></div>
+                <div class="form-group"><label>Coxa D. Contraída</label><input type="number" step="0.1" name="coxa_d_contraida"></div>
+                <div class="form-group"><label>Panturrilha Esquerda</label><input type="number" step="0.1" name="panturrilha_e"></div>
+                <div class="form-group"><label>Panturrilha Direita</label><input type="number" step="0.1" name="panturrilha_d"></div>
+            </div>
+
+            <h3 style="margin-top: 14px;">Membros Superiores (cm)</h3>
+            <div class="grid-3">
+                <div class="form-group"><label>Braço E. Relaxado</label><input type="number" step="0.1" name="braco_e_relaxado"></div>
+                <div class="form-group"><label>Braço E. Contraído</label><input type="number" step="0.1" name="braco_e_contraido"></div>
+                <div class="form-group"><label>Braço D. Relaxado</label><input type="number" step="0.1" name="braco_d_relaxado"></div>
+                <div class="form-group"><label>Braço D. Contraído</label><input type="number" step="0.1" name="braco_d_contraido"></div>
+                <div class="form-group"><label>Antebraço E.</label><input type="number" step="0.1" name="antebraco_e"></div>
+                <div class="form-group"><label>Antebraço D.</label><input type="number" step="0.1" name="antebraco_d"></div>
+            </div>
+        </div>
+
+        <!-- ABA 3: DOBRAS CUTÂNEAS & FLEXIBILIDADE -->
+        <div id="tab-dobras" class="tab-content">
+            <h3>Dobras Cutâneas (mm)</h3>
+            <div class="grid-3">
+                <div class="form-group"><label>Bíceps</label><input type="number" step="0.1" name="dobra_biceps"></div>
+                <div class="form-group"><label>Tríceps *</label><input type="number" step="0.1" name="dobra_triceps" id="dobra_triceps"></div>
+                <div class="form-group"><label>Axilar *</label><input type="number" step="0.1" name="dobra_axilar" id="dobra_axilar"></div>
+                <div class="form-group"><label>Subescapular *</label><input type="number" step="0.1" name="dobra_subescapular" id="dobra_subescapular"></div>
+                <div class="form-group"><label>Peitoral *</label><input type="number" step="0.1" name="dobra_peitoral" id="dobra_peitoral"></div>
+                <div class="form-group"><label>Suprailíaca *</label><input type="number" step="0.1" name="dobra_suprailiaca" id="dobra_suprailiaca"></div>
+                <div class="form-group"><label>Abdominal *</label><input type="number" step="0.1" name="dobra_abdominal" id="dobra_abdominal"></div>
+                <div class="form-group"><label>Coxa *</label><input type="number" step="0.1" name="dobra_coxa" id="dobra_coxa"></div>
+                <div class="form-group"><label>Panturrilha</label><input type="number" step="0.1" name="dobra_panturrilha"></div>
+            </div>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">* Dobras usadas no cálculo automático de % de Gordura (Pollock 7).</p>
+
+            <h3>Flexibilidade & Fechamento</h3>
+            <div class="form-group">
+                <label>Banco de Well (cm)</label>
+                <input type="number" step="0.1" name="banco_well">
+            </div>
+            <div class="form-group">
+                <label>Considerações</label>
+                <textarea name="consideracoes" rows="3" placeholder="Observações técnicas do professor..."></textarea>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-block" style="margin-top: 16px;">Salvar Avaliação e Gerar QR Code</button>
+    </form>
+</div>
+{% endblock %}

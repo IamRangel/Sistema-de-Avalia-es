@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <h2>Cadastrar Novo Aluno</h2>
+    <form method="POST" action="{{ url_for('novo_aluno') }}">
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Nome Completo *</label>
+                <input type="text" name="nome" required placeholder="Ex: João da Silva">
+            </div>
+            <div class="form-group">
+                <label>Data de Nascimento * (para cálculo Pollock)</label>
+                <input type="date" name="data_nascimento" required>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Sexo Biológico *</label>
+                <select name="sexo" required>
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>WhatsApp / Telefone</label>
+                <input type="text" name="telefone" placeholder="(41) 99999-9999">
+            </div>
+        </div>
+        <button type="submit" class="btn">Cadastrar e Iniciar Avaliação</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Alunos Cadastrados ({{ alunos|length }})</h2>
+    <form method="GET" style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <input type="text" name="q" value="{{ busca }}" placeholder="Buscar aluno pelo nome...">
+        <button type="submit" class="btn btn-outline">Buscar</button>
+    </form>
+
+    {% if alunos %}
+        {% for a in alunos %}
+        <div class="aluno-item">
+            <div>
+                <strong>{{ a.nome }}</strong>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    {{ a.idade }} anos • {{ 'Masculino' if a.sexo == 'M' else 'Feminino' }} • {{ a.avaliacoes|length }} avaliação(ões)
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <a href="{{ url_for('perfil_aluno', aluno_id=a.id) }}" class="btn btn-outline">Histórico</a>
+                <a href="{{ url_for('nova_avaliacao', aluno_id=a.id) }}" class="btn">Avaliar</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color: var(--text-muted);">Nenhum aluno encontrado.</p>
+    {% endif %}
+</div>
+{% endblock %}
