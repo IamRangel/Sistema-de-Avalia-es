@@ -5,18 +5,13 @@ import base64
 from datetime import datetime, date
 from functools import wraps
 
-from flask import (
-    Flask, render_template, request, redirect,
-    url_for, session, flash, send_file, abort
-)
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
 import qrcode
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-)
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
@@ -26,7 +21,9 @@ app.secret_key = os.environ.get("SECRET_KEY", "phd-sports-secret-key-2026")
 # Configuração inteligente de Banco: PostgreSQL no Render ou SQLite local
 database_url = os.environ.get("DATABASE_URL", "sqlite:///phd_avaliacoes.db")
 if database_url.startswith("postgres://"):
-    database_url = database_url.replace("postgres://", "postgresql://", 1)
+    database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+elif database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -37,6 +34,7 @@ db = SQLAlchemy(app)
 # MODELOS DO BANCO DE DADOS
 # ==========================================
 
+
 class Aluno(db.Model):
     __tablename__ = "alunos"
     id = db.Column(db.Integer, primary_key=True)
@@ -46,18 +44,12 @@ class Aluno(db.Model):
     telefone = db.Column(db.String(30), nullable=True)
     criado_em = db.Column(db.DateTime, default=datetime.utcnow)
 
-    avaliacoes = db.relationship(
-        "Avaliacao", backref="aluno", lazy=True,
-        order_by="desc(Avaliacao.data_avaliacao)"
-    )
+    avaliacoes = db.relationship("Avaliacao", backref="aluno", lazy=True, order_by="desc(Avaliacao.data_avaliacao)")
 
     @property
     def idade(self):
         hoje = date.today()
-        return (
-            hoje.year - self.data_nascimento.year
-            - ((hoje.month, hoje.day) < (self.data_nascimento.month, self.data_nascimento.day))
-        )
+        return hoje.year - self.data_nascimento.year - ((hoje.month, hoje.day) < (self.data_nascimento.month, self.data_nascimento.day))
 
 
 class Avaliacao(db.Model):
@@ -135,12 +127,14 @@ with app.app_context():
 # FUNÇÕES AUXILIARES E CÁLCULOS
 # ==========================================
 
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get("logged_in"):
             return redirect(url_for("login"))
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -155,7 +149,7 @@ def to_float(value):
 
 def calcular_metricas(peso, altura, sexo, idade, dobras_7):
     # 1. IMC
-    imc = round(peso / (altura ** 2), 2) if (peso and altura and altura > 0) else None
+    imc = round(peso / (altura**2), 2) if (peso and altura and altura > 0) else None
     classificacao = ""
     if imc:
         if imc < 18.5:
@@ -179,19 +173,9 @@ def calcular_metricas(peso, altura, sexo, idade, dobras_7):
     if all(d is not None and d > 0 for d in dobras_7):
         soma_7 = sum(dobras_7)
         if sexo == "M":
-            dc = (
-                1.112
-                - (0.00043499 * soma_7)
-                + (0.00000055 * (soma_7 ** 2))
-                - (0.00028826 * idade)
-            )
+            dc = 1.112 - (0.00043499 * soma_7) + (0.00000055 * (soma_7**2)) - (0.00028826 * idade)
         else:
-            dc = (
-                1.097
-                - (0.00046971 * soma_7)
-                + (0.00000056 * (soma_7 ** 2))
-                - (0.00012828 * idade)
-            )
+            dc = 1.097 - (0.00046971 * soma_7) + (0.00000056 * (soma_7**2)) - (0.00012828 * idade)
 
         if dc > 0:
             perc_gordura = round(((495 / dc) - 450), 2)
@@ -215,6 +199,7 @@ def gerar_qr_base64(url):
 # ==========================================
 # ROTAS DO SISTEMA
 # ==========================================
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -300,14 +285,9 @@ def nova_avaliacao(aluno_id):
         d_coxa = to_float(request.form.get("dobra_coxa"))
         d_panturrilha = to_float(request.form.get("dobra_panturrilha"))
 
-        dobras_7 = [
-            d_peitoral, d_axilar, d_triceps,
-            d_subescapular, d_abdominal, d_suprailiaca, d_coxa
-        ]
+        dobras_7 = [d_peitoral, d_axilar, d_triceps, d_subescapular, d_abdominal, d_suprailiaca, d_coxa]
 
-        imc, class_imc, perc_gordura, m_gorda, m_magra = calcular_metricas(
-            peso, altura, aluno.sexo, aluno.idade, dobras_7
-        )
+        imc, class_imc, perc_gordura, m_gorda, m_magra = calcular_metricas(peso, altura, aluno.sexo, aluno.idade, dobras_7)
 
         av = Avaliacao(
             aluno_id=aluno.id,
@@ -323,7 +303,6 @@ def nova_avaliacao(aluno_id):
             alimentacao=request.form.get("alimentacao"),
             sono=request.form.get("sono"),
             disponibilidade_treino=request.form.get("disponibilidade_treino"),
-
             pescoco=to_float(request.form.get("pescoco")),
             ombro=to_float(request.form.get("ombro")),
             torax_inspirado=to_float(request.form.get("torax_inspirado")),
@@ -332,21 +311,18 @@ def nova_avaliacao(aluno_id):
             cintura=to_float(request.form.get("cintura")),
             abdomen=to_float(request.form.get("abdomen")),
             quadril=to_float(request.form.get("quadril")),
-
             coxa_e_relaxada=to_float(request.form.get("coxa_e_relaxada")),
             coxa_e_contraida=to_float(request.form.get("coxa_e_contraida")),
             coxa_d_relaxada=to_float(request.form.get("coxa_d_relaxada")),
             coxa_d_contraida=to_float(request.form.get("coxa_d_contraida")),
             panturrilha_e=to_float(request.form.get("panturrilha_e")),
             panturrilha_d=to_float(request.form.get("panturrilha_d")),
-
             braco_e_relaxado=to_float(request.form.get("braco_e_relaxado")),
             braco_e_contraido=to_float(request.form.get("braco_e_contraido")),
             braco_d_relaxado=to_float(request.form.get("braco_d_relaxado")),
             braco_d_contraido=to_float(request.form.get("braco_d_contraido")),
             antebraco_e=to_float(request.form.get("antebraco_e")),
             antebraco_d=to_float(request.form.get("antebraco_d")),
-
             dobra_biceps=d_biceps,
             dobra_triceps=d_triceps,
             dobra_axilar=d_axilar,
@@ -356,15 +332,13 @@ def nova_avaliacao(aluno_id):
             dobra_abdominal=d_abdominal,
             dobra_coxa=d_coxa,
             dobra_panturrilha=d_panturrilha,
-
             banco_well=to_float(request.form.get("banco_well")),
             consideracoes=request.form.get("consideracoes"),
-
             imc=imc,
             classificacao_imc=class_imc,
             percentual_gordura=perc_gordura,
             massa_gorda=m_gorda,
-            massa_magra=m_magra
+            massa_magra=m_magra,
         )
 
         db.session.add(av)
@@ -387,6 +361,7 @@ def resultado_avaliacao(token):
 # ROTA PÚBLICA DO QR CODE (GERAÇÃO DE PDF ON-THE-FLY)
 # ==========================================
 
+
 @app.route("/pdf/<token>")
 def baixar_pdf_publico(token):
     av = Avaliacao.query.filter_by(token=token).first_or_404()
@@ -398,10 +373,7 @@ def baixar_pdf_publico(token):
     av_anterior = todas_avs[idx + 1] if (idx + 1) < len(todas_avs) else None
 
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
-        rightMargin=28, leftMargin=28, topMargin=24, bottomMargin=24
-    )
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=28, leftMargin=28, topMargin=24, bottomMargin=24)
 
     # Paleta Ph.D Sports (Preto Grafite, Cinza Escuro e Verde Esporte)
     PHD_DARK = colors.HexColor("#14171A")
@@ -410,39 +382,35 @@ def baixar_pdf_publico(token):
     PHD_BORDER = colors.HexColor("#D1D5DB")
 
     styles = getSampleStyleSheet()
-    style_title = ParagraphStyle(
-        "PhdTitle", parent=styles["Heading1"],
-        fontSize=16, textColor=colors.white, alignment=TA_LEFT, leading=20
-    )
-    style_sub = ParagraphStyle(
-        "PhdSub", parent=styles["Normal"],
-        fontSize=9, textColor=PHD_ACCENT, alignment=TA_RIGHT
-    )
+    style_title = ParagraphStyle("PhdTitle", parent=styles["Heading1"], fontSize=16, textColor=colors.white, alignment=TA_LEFT, leading=20)
+    style_sub = ParagraphStyle("PhdSub", parent=styles["Normal"], fontSize=9, textColor=PHD_ACCENT, alignment=TA_RIGHT)
     style_sec = ParagraphStyle(
-        "PhdSec", parent=styles["Heading2"],
-        fontSize=10, textColor=PHD_DARK, backColor=PHD_ACCENT,
-        borderPadding=(4, 6, 4, 6), spaceBefore=8, spaceAfter=4
+        "PhdSec", parent=styles["Heading2"], fontSize=10, textColor=PHD_DARK, backColor=PHD_ACCENT, borderPadding=(4, 6, 4, 6), spaceBefore=8, spaceAfter=4
     )
-    style_cell = ParagraphStyle(
-        "PhdCell", parent=styles["Normal"], fontSize=8.5, leading=11
-    )
+    style_cell = ParagraphStyle("PhdCell", parent=styles["Normal"], fontSize=8.5, leading=11)
 
     elements = []
 
     # Cabeçalho estilo Ph.D Sports
-    header_data = [[
-        Paragraph("<b>PH.D SPORTS</b><br/><font size=9 color='#D1D5DB'>RELATÓRIO DE AVALIAÇÃO FÍSICA</font>", style_title),
-        Paragraph(f"<b>DATA:</b> {av.data_avaliacao.strftime('%d/%m/%Y')}<br/><b>PROTOCOLO:</b> Pollock 7 Dobras", style_sub)
-    ]]
+    header_data = [
+        [
+            Paragraph("<b>PH.D SPORTS</b><br/><font size=9 color='#D1D5DB'>RELATÓRIO DE AVALIAÇÃO FÍSICA</font>", style_title),
+            Paragraph(f"<b>DATA:</b> {av.data_avaliacao.strftime('%d/%m/%Y')}<br/><b>PROTOCOLO:</b> Pollock 7 Dobras", style_sub),
+        ]
+    ]
     header_table = Table(header_data, colWidths=[350, 189])
-    header_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), PHD_DARK),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-    ]))
+    header_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), PHD_DARK),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ]
+        )
+    )
     elements.append(header_table)
     elements.append(Spacer(1, 8))
 
@@ -462,15 +430,19 @@ def baixar_pdf_publico(token):
             Paragraph(f"<b>IMC:</b> {av.imc} ({av.classificacao_imc})", style_cell),
             Paragraph(f"<b>% GORDURA:</b> {gordura_str}", style_cell),
             Paragraph(f"<b>MASSA MAGRA / GORDA:</b> {magra_str} / {gorda_str}", style_cell),
-        ]
+        ],
     ]
     resumo_table = Table(resumo_data, colWidths=[215, 145, 179])
-    resumo_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), PHD_GRAY_BG),
-        ("BOX", (0, 0), (-1, -1), 0.8, PHD_DARK),
-        ("INNERGRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
-        ("PADDING", (0, 0), (-1, -1), 6),
-    ]))
+    resumo_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), PHD_GRAY_BG),
+                ("BOX", (0, 0), (-1, -1), 0.8, PHD_DARK),
+                ("INNERGRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
+                ("PADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
     elements.append(resumo_table)
 
     # Comparativo de Evolução (se existir avaliação anterior)
@@ -483,46 +455,60 @@ def baixar_pdf_publico(token):
             sinal_g = "+" if dg > 0 else ""
             diff_g = f" | <b>Variação % Gordura:</b> {sinal_g}{dg}%"
 
-        evo_table = Table([[
-            Paragraph(
-                f"<b>EVOLUÇÃO DESDE {av_anterior.data_avaliacao.strftime('%d/%m/%Y')}:</b> "
-                f"<b>Peso:</b> {sinal_p}{diff_peso} kg{diff_g}", style_cell
+        evo_table = Table(
+            [
+                [
+                    Paragraph(
+                        f"<b>EVOLUÇÃO DESDE {av_anterior.data_avaliacao.strftime('%d/%m/%Y')}:</b> " f"<b>Peso:</b> {sinal_p}{diff_peso} kg{diff_g}", style_cell
+                    )
+                ]
+            ],
+            colWidths=[539],
+        )
+        evo_table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFCCB")),
+                    ("BOX", (0, 0), (-1, -1), 0.6, PHD_ACCENT),
+                    ("PADDING", (0, 0), (-1, -1), 5),
+                ]
             )
-        ]], colWidths=[539])
-        evo_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFCCB")),
-            ("BOX", (0, 0), (-1, -1), 0.6, PHD_ACCENT),
-            ("PADDING", (0, 0), (-1, -1), 5),
-        ]))
+        )
         elements.append(Spacer(1, 4))
         elements.append(evo_table)
 
     # Bloco 1: Anamnese
     elements.append(Paragraph("<b>1. ANAMNESE</b>", style_sec))
-    def val(v): return str(v) if v not in (None, "") else "-"
+
+    def val(v):
+        return str(v) if v not in (None, "") else "-"
 
     anam_data = [
-        [Paragraph(f"<b>Objetivo:</b> {val(av.objetivo)}", style_cell),
-         Paragraph(f"<b>Profissão:</b> {val(av.profissao)}", style_cell)],
-        [Paragraph(f"<b>Histórico de Atividade:</b> {val(av.historico_atividade)}", style_cell),
-         Paragraph(f"<b>Disponibilidade Treino:</b> {val(av.disponibilidade_treino)}", style_cell)],
-        [Paragraph(f"<b>Doenças:</b> {val(av.doencas)}", style_cell),
-         Paragraph(f"<b>Histórico Familiar:</b> {val(av.historico_familiar)}", style_cell)],
-        [Paragraph(f"<b>Remédios:</b> {val(av.remedios)}", style_cell),
-         Paragraph(f"<b>Lesões:</b> {val(av.lesoes)}", style_cell)],
-        [Paragraph(f"<b>Alimentação:</b> {val(av.alimentacao)}", style_cell),
-         Paragraph(f"<b>Sono:</b> {val(av.sono)}", style_cell)],
+        [Paragraph(f"<b>Objetivo:</b> {val(av.objetivo)}", style_cell), Paragraph(f"<b>Profissão:</b> {val(av.profissao)}", style_cell)],
+        [
+            Paragraph(f"<b>Histórico de Atividade:</b> {val(av.historico_atividade)}", style_cell),
+            Paragraph(f"<b>Disponibilidade Treino:</b> {val(av.disponibilidade_treino)}", style_cell),
+        ],
+        [Paragraph(f"<b>Doenças:</b> {val(av.doencas)}", style_cell), Paragraph(f"<b>Histórico Familiar:</b> {val(av.historico_familiar)}", style_cell)],
+        [Paragraph(f"<b>Remédios:</b> {val(av.remedios)}", style_cell), Paragraph(f"<b>Lesões:</b> {val(av.lesoes)}", style_cell)],
+        [Paragraph(f"<b>Alimentação:</b> {val(av.alimentacao)}", style_cell), Paragraph(f"<b>Sono:</b> {val(av.sono)}", style_cell)],
     ]
     anam_table = Table(anam_data, colWidths=[269.5, 269.5])
-    anam_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
-        ("PADDING", (0, 0), (-1, -1), 4),
-    ]))
+    anam_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
+                ("PADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
     elements.append(anam_table)
 
     # Bloco 2: Circunferências (cm)
     elements.append(Paragraph("<b>2. CIRCUNFERÊNCIAS (cm)</b>", style_sec))
-    def fmt(num, unit=""): return f"{num} {unit}".strip() if num is not None else "-"
+
+    def fmt(num, unit=""):
+        return f"{num} {unit}".strip() if num is not None else "-"
 
     circ_data = [
         ["Tronco", "Medida", "Membros Inferiores", "Medida", "Membros Superiores", "Medida"],
@@ -535,15 +521,19 @@ def baixar_pdf_publico(token):
         ["Abdômen", fmt(av.abdomen), "Quadril", fmt(av.quadril), "", ""],
     ]
     circ_table = Table(circ_data, colWidths=[105, 74.6, 105, 74.6, 105, 74.8])
-    circ_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), PHD_DARK),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PHD_GRAY_BG]),
-        ("PADDING", (0, 0), (-1, -1), 3.5),
-    ]))
+    circ_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), PHD_DARK),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PHD_GRAY_BG]),
+                ("PADDING", (0, 0), (-1, -1), 3.5),
+            ]
+        )
+    )
     elements.append(circ_table)
 
     # Bloco 3: Dobras Cutâneas (mm) & Flexibilidade
@@ -556,24 +546,32 @@ def baixar_pdf_publico(token):
         ["Banco de Well", fmt(av.banco_well, "cm"), "", "", "", ""],
     ]
     dobras_table = Table(dobras_data, colWidths=[105, 74.6, 105, 74.6, 105, 74.8])
-    dobras_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), PHD_DARK),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PHD_GRAY_BG]),
-        ("PADDING", (0, 0), (-1, -1), 3.5),
-    ]))
+    dobras_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), PHD_DARK),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.4, PHD_BORDER),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, PHD_GRAY_BG]),
+                ("PADDING", (0, 0), (-1, -1), 3.5),
+            ]
+        )
+    )
     elements.append(dobras_table)
 
     # Bloco 4: Considerações
     elements.append(Paragraph("<b>4. CONSIDERAÇÕES DO AVALIADOR</b>", style_sec))
     cons_table = Table([[Paragraph(val(av.consideracoes), style_cell)]], colWidths=[539])
-    cons_table.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 0.4, PHD_BORDER),
-        ("PADDING", (0, 0), (-1, -1), 6),
-    ]))
+    cons_table.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 0.4, PHD_BORDER),
+                ("PADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
     elements.append(cons_table)
 
     doc.build(elements)
