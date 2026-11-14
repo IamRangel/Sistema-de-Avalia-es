@@ -21,13 +21,35 @@
         </div>
     </div>
 
-    <div class="tabs">
+    <div class="draft-notice" id="draft-notice" role="status" hidden>
+        <div>
+            <strong>Há um rascunho nesta aba.</strong>
+            <span>Ele fica temporariamente nesta aba e não é enviado ao servidor até salvar. Evite usar em dispositivo compartilhado.</span>
+        </div>
+        <div class="draft-actions">
+            <button type="button" class="btn btn-outline" id="restore-draft">Continuar rascunho</button>
+            <button type="button" class="text-btn" id="discard-draft">Descartar</button>
+        </div>
+    </div>
+
+    <div class="step-progress" aria-live="polite">
+        <div class="step-progress-copy">
+            <strong id="step-title">Etapa 1 de 4 · Anamnese</strong>
+            <span id="step-hint">Dados do aluno e histórico</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-label="Progresso da avaliação" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
+            <span id="progress-value"></span>
+        </div>
+    </div>
+
+    <div class="tabs" aria-label="Etapas da avaliação">
         <button type="button" class="tab-btn active" onclick="openTab(event, 'tab-anamnese')">1. Anamnese</button>
         <button type="button" class="tab-btn" onclick="openTab(event, 'tab-circ')">2. Circunferências</button>
         <button type="button" class="tab-btn" onclick="openTab(event, 'tab-dobras')">3. Dobras & Flex</button>
+        <button type="button" class="tab-btn" onclick="openTab(event, 'tab-review')">4. Revisão</button>
     </div>
 
-    <form method="POST">
+    <form method="POST" id="avaliacao-form" data-student-id="{{ aluno.id }}" novalidate>
         <!-- ABA 1: ANAMNESE -->
         <div id="tab-anamnese" class="tab-content active">
             <div class="grid-2">
@@ -41,9 +63,20 @@
                 </div>
             </div>
             <div class="grid-2">
-                <div class="form-group">
-                    <label>Objetivo</label>
-                    <input type="text" name="objetivo" value="{{ ultima_av.objetivo if ultima_av and ultima_av.objetivo else '' }}">
+                <div class="form-group choice-group" role="group" aria-labelledby="objetivo-label" data-review-label="Objetivos">
+                    <span class="choice-group-label" id="objetivo-label">Objetivos <span class="field-hint">(selecione todos que se aplicam)</span></span>
+                    <div class="choice-grid">
+                        {% for opcao in objetivos_opcoes %}
+                        <label class="choice-option">
+                            <input type="checkbox" name="objetivo_opcoes" value="{{ opcao }}" {% if opcao in objetivos_selecionados %}checked{% endif %}>
+                            <span>{{ opcao }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="choice-other" id="objetivo-outro-group" hidden>
+                        <label for="objetivo-outro">Descreva outro objetivo</label>
+                        <input type="text" id="objetivo-outro" name="objetivo_outro" value="{{ objetivo_outro }}" placeholder="Ex.: melhorar a mobilidade" disabled>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Histórico Anterior de Atividade</label>
@@ -52,12 +85,18 @@
             </div>
             <div class="grid-2">
                 <div class="form-group">
-                    <label>Doenças</label>
-                    <input type="text" name="doencas" value="{{ ultima_av.doencas if ultima_av and ultima_av.doencas else '' }}">
+                    <label>Doenças ou condições de saúde</label>
+                    <div class="quick-answer-row">
+                        <input type="text" id="doencas" name="doencas" value="{{ ultima_av.doencas if ultima_av and ultima_av.doencas else '' }}" placeholder="Informe, se houver">
+                        <button type="button" class="quick-answer" data-fill-target="doencas" data-fill-value="Nenhum">Nenhum</button>
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>Remédios</label>
-                    <input type="text" name="remedios" value="{{ ultima_av.remedios if ultima_av and ultima_av.remedios else '' }}">
+                    <label>Medicamentos em uso</label>
+                    <div class="quick-answer-row">
+                        <input type="text" id="remedios" name="remedios" value="{{ ultima_av.remedios if ultima_av and ultima_av.remedios else '' }}" placeholder="Informe, se houver">
+                        <button type="button" class="quick-answer" data-fill-target="remedios" data-fill-value="Nenhum">Nenhum</button>
+                    </div>
                 </div>
             </div>
             <div class="grid-2">
@@ -84,9 +123,18 @@
                     <input type="text" name="sono" value="{{ ultima_av.sono if ultima_av and ultima_av.sono else '' }}">
                 </div>
             </div>
-            <div class="form-group">
-                <label>Disponibilidade para Treino</label>
-                <input type="text" name="disponibilidade_treino" value="{{ ultima_av.disponibilidade_treino if ultima_av and ultima_av.disponibilidade_treino else '' }}">
+            <div class="form-group" data-review-label="Disponibilidade para treino">
+                <label for="disponibilidade-treino">Disponibilidade para treino</label>
+                <select id="disponibilidade-treino" name="disponibilidade_treino">
+                    <option value="">Selecione a frequência</option>
+                    {% for opcao in disponibilidade_opcoes %}
+                    <option value="{{ opcao }}" {% if opcao == disponibilidade_opcao %}selected{% endif %}>{{ opcao }}</option>
+                    {% endfor %}
+                </select>
+                <div class="choice-other" id="disponibilidade-outro-group" hidden>
+                    <label for="disponibilidade-outro">Descreva a disponibilidade</label>
+                    <input type="text" id="disponibilidade-outro" name="disponibilidade_outro" value="{{ disponibilidade_outro }}" placeholder="Ex.: finais de semana" disabled>
+                </div>
             </div>
         </div>
 
@@ -152,7 +200,24 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-block" style="margin-top: 16px;">Salvar Avaliação e Gerar QR Code</button>
+        <section id="tab-review" class="tab-content review-step">
+            <div class="review-heading">
+                <div>
+                    <h2>Confira antes de salvar</h2>
+                    <p>Revise os dados desta avaliação. Campos não preenchidos serão registrados como não informados.</p>
+                </div>
+                <div class="review-count" id="review-count" aria-live="polite"></div>
+            </div>
+            <div class="review-metrics" id="review-metrics"></div>
+            <div class="review-sections" id="review-sections"></div>
+        </section>
+
+        <div class="step-actions">
+            <button type="button" class="btn btn-outline" id="previous-step">Voltar</button>
+            <span class="draft-status" id="draft-status" aria-live="polite">O rascunho será salvo automaticamente nesta aba.</span>
+            <button type="button" class="btn" id="next-step">Continuar</button>
+            <button type="submit" class="btn" id="submit-assessment" hidden>Salvar avaliação</button>
+        </div>
     </form>
 </div>
 {% endblock %}

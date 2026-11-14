@@ -4,6 +4,7 @@ import uuid
 import base64
 from datetime import datetime, date
 from functools import wraps
+from xml.sax.saxutils import escape
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
@@ -29,6 +30,28 @@ app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
+OBJETIVOS_AVALIACAO = (
+    "Emagrecimento",
+    "Ganho de massa muscular",
+    "Condicionamento físico",
+    "Saúde e qualidade de vida",
+    "Performance esportiva",
+    "Manutenção do peso",
+    "Outro",
+)
+
+DISPONIBILIDADES_TREINO = (
+    "1x por semana",
+    "2x por semana",
+    "3x por semana",
+    "4x por semana",
+    "5x por semana",
+    "6x por semana",
+    "Todos os dias",
+    "Variável",
+    "Outro",
+)
 
 # ==========================================
 # MODELOS DO BANCO DE DADOS
@@ -147,6 +170,28 @@ def to_float(value):
         return None
 
 
+def recuperar_opcoes_salvas(valor, opcoes):
+    selecionadas = []
+    outro_texto = []
+
+    for item in (valor or "").split(" | "):
+        if item in opcoes:
+            if item not in selecionadas:
+                selecionadas.append(item)
+        elif item.startswith("Outro:"):
+            if "Outro" in opcoes and "Outro" not in selecionadas:
+                selecionadas.append("Outro")
+            detalhe = item.partition(":")[2].strip()
+            if detalhe:
+                outro_texto.append(detalhe)
+        elif item:
+            if "Outro" in opcoes and "Outro" not in selecionadas:
+                selecionadas.append("Outro")
+            outro_texto.append(item)
+
+    return selecionadas, "; ".join(outro_texto)
+
+
 def calcular_metricas(peso, altura, sexo, idade, dobras_7):
     # 1. IMC
     imc = round(peso / (altura**2), 2) if (peso and altura and altura > 0) else None
@@ -235,14 +280,25 @@ def dashboard():
 def novo_aluno():
     nome = request.form.get("nome", "").strip()
     sexo = request.form.get("sexo", "M")
-    data_nasc_str = request.form.get("data_nascimento")
+    data_nasc_str = request.form.get("data_nascimento", "").strip()
     telefone = request.form.get("telefone", "").strip()
 
     if not nome or not data_nasc_str:
         flash("Preencha o nome e a data de nascimento do aluno.", "error")
         return redirect(url_for("dashboard"))
 
-    data_nasc = datetime.strptime(data_nasc_str, "%Y-%m-%d").date()
+    data_nasc = None
+    for formato in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            data_nasc = datetime.strptime(data_nasc_str, formato).date()
+            break
+        except ValueError:
+            continue
+
+    if data_nasc is None:
+        flash("Data de nascimento inválida. Informe no formato DD/MM/AAAA.", "error")
+        return redirect(url_for("dashboard"))
+
     aluno = Aluno(nome=nome, sexo=sexo, data_nascimento=data_nasc, telefone=telefone)
     db.session.add(aluno)
     db.session.commit()
@@ -288,12 +344,27 @@ def nova_avaliacao(aluno_id):
         dobras_7 = [d_peitoral, d_axilar, d_triceps, d_subescapular, d_abdominal, d_suprailiaca, d_coxa]
 
         imc, class_imc, perc_gordura, m_gorda, m_magra = calcular_metricas(peso, altura, aluno.sexo, aluno.idade, dobras_7)
+        objetivos_selecionados = [
+            item for item in request.form.getlist("objetivo_opcoes") if item in OBJETIVOS_AVALIACAO
+        ]
+        objetivo_outro = request.form.get("objetivo_outro", "").strip()
+        if objetivo_outro and "Outro" in objetivos_selecionados:
+            objetivos_selecionados.remove("Outro")
+            objetivos_selecionados.append(f"Outro: {objetivo_outro}")
+        objetivo = " | ".join(objetivos_selecionados) or None
+
+        disponibilidade = request.form.get("disponibilidade_treino", "")
+        if disponibilidade not in DISPONIBILIDADES_TREINO:
+            disponibilidade = ""
+        if disponibilidade == "Outro":
+            disponibilidade_outro = request.form.get("disponibilidade_outro", "").strip()
+            disponibilidade = f"Outro: {disponibilidade_outro}" if disponibilidade_outro else "Outro"
 
         av = Avaliacao(
             aluno_id=aluno.id,
             peso=peso,
             altura=altura,
-            objetivo=request.form.get("objetivo"),
+            objetivo=objetivo,
             historico_atividade=request.form.get("historico_atividade"),
             doencas=request.form.get("doencas"),
             remedios=request.form.get("remedios"),
@@ -302,7 +373,7 @@ def nova_avaliacao(aluno_id):
             profissao=request.form.get("profissao"),
             alimentacao=request.form.get("alimentacao"),
             sono=request.form.get("sono"),
-            disponibilidade_treino=request.form.get("disponibilidade_treino"),
+            disponibilidade_treino=disponibilidade or None,
             pescoco=to_float(request.form.get("pescoco")),
             ombro=to_float(request.form.get("ombro")),
             torax_inspirado=to_float(request.form.get("torax_inspirado")),
@@ -343,18 +414,63 @@ def nova_avaliacao(aluno_id):
 
         db.session.add(av)
         db.session.commit()
+        session["completed_assessment_student_id"] = aluno.id
         return redirect(url_for("resultado_avaliacao", token=av.token))
 
-    return render_template("avaliar.html", aluno=aluno, ultima_av=ultima_av)
+    objetivos_selecionados, objetivo_outro = recuperar_opcoes_salvas(
+        ultima_av.objetivo if ultima_av else None,
+        OBJETIVOS_AVALIACAO,
+    )
+    disponibilidade_selecionada, disponibilidade_outro = recuperar_opcoes_salvas(
+        ultima_av.disponibilidade_treino if ultima_av else None,
+        DISPONIBILIDADES_TREINO,
+    )
+    return render_template(
+        "avaliar.html",
+        aluno=aluno,
+        disponibilidade_opcao=disponibilidade_selecionada[0] if disponibilidade_selecionada else "",
+        disponibilidade_opcoes=DISPONIBILIDADES_TREINO,
+        disponibilidade_outro=disponibilidade_outro,
+        objetivos_opcoes=OBJETIVOS_AVALIACAO,
+        objetivos_selecionados=objetivos_selecionados,
+        objetivo_outro=objetivo_outro,
+        ultima_av=ultima_av,
+    )
 
 
 @app.route("/avaliacao/<token>")
 @login_required
 def resultado_avaliacao(token):
     av = Avaliacao.query.filter_by(token=token).first_or_404()
+    clear_draft = session.pop("completed_assessment_student_id", None) == av.aluno_id
+    avaliacoes = av.aluno.avaliacoes
+    indice_avaliacao = next((i for i, item in enumerate(avaliacoes) if item.id == av.id), None)
+    av_anterior = (
+        avaliacoes[indice_avaliacao + 1]
+        if indice_avaliacao is not None and indice_avaliacao + 1 < len(avaliacoes)
+        else None
+    )
+    historico = []
+    if indice_avaliacao is not None:
+        historico = [
+            {
+                "data": item.data_avaliacao.strftime("%d/%m/%y"),
+                "peso": item.peso,
+                "percentual_gordura": item.percentual_gordura,
+            }
+            for item in reversed(avaliacoes[indice_avaliacao : indice_avaliacao + 6])
+        ]
     pdf_url = url_for("baixar_pdf_publico", token=av.token, _external=True)
     qr_b64 = gerar_qr_base64(pdf_url)
-    return render_template("resultado.html", av=av, qr_b64=qr_b64, pdf_url=pdf_url)
+    return render_template(
+        "resultado.html",
+        av=av,
+        av_anterior=av_anterior,
+        clear_draft=clear_draft,
+        historico=historico,
+        qr_b64=qr_b64,
+        pdf_url=pdf_url,
+    )
 
 
 # ==========================================
@@ -375,26 +491,33 @@ def baixar_pdf_publico(token):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=28, leftMargin=28, topMargin=24, bottomMargin=24)
 
-    # Paleta Ph.D Sports (Preto Grafite, Cinza Escuro e Verde Esporte)
-    PHD_DARK = colors.HexColor("#14171A")
-    PHD_ACCENT = colors.HexColor("#84CC16")  # Verde Lima Ph.D
-    PHD_GRAY_BG = colors.HexColor("#F3F4F6")
+    # Paleta do site em uma versão adequada para impressão.
+    PHD_DARK = colors.HexColor("#0C1523")
+    PHD_BLUE = colors.HexColor("#203D68")
+    PHD_ACCENT = colors.HexColor("#FFE600")
+    PHD_LIGHT_ACCENT = colors.HexColor("#FFF9C2")
+    PHD_GRAY_BG = colors.HexColor("#F8FAFC")
     PHD_BORDER = colors.HexColor("#D1D5DB")
 
     styles = getSampleStyleSheet()
-    style_title = ParagraphStyle("PhdTitle", parent=styles["Heading1"], fontSize=16, textColor=colors.white, alignment=TA_LEFT, leading=20)
-    style_sub = ParagraphStyle("PhdSub", parent=styles["Normal"], fontSize=9, textColor=PHD_ACCENT, alignment=TA_RIGHT)
+    style_title = ParagraphStyle("PhdTitle", parent=styles["Heading1"], fontSize=16, textColor=PHD_DARK, alignment=TA_LEFT, leading=20)
+    style_sub = ParagraphStyle("PhdSub", parent=styles["Normal"], fontSize=9, textColor=PHD_BLUE, alignment=TA_RIGHT)
     style_sec = ParagraphStyle(
         "PhdSec", parent=styles["Heading2"], fontSize=10, textColor=PHD_DARK, backColor=PHD_ACCENT, borderPadding=(4, 6, 4, 6), spaceBefore=8, spaceAfter=4
     )
-    style_cell = ParagraphStyle("PhdCell", parent=styles["Normal"], fontSize=8.5, leading=11)
+    style_cell = ParagraphStyle("PhdCell", parent=styles["Normal"], fontSize=8.5, leading=11, textColor=PHD_DARK)
 
     elements = []
+
+    def val(value):
+        if value in (None, ""):
+            return "-"
+        return escape(str(value).replace(" | ", ", "))
 
     # Cabeçalho estilo Ph.D Sports
     header_data = [
         [
-            Paragraph("<b>PH.D SPORTS</b><br/><font size=9 color='#D1D5DB'>RELATÓRIO DE AVALIAÇÃO FÍSICA</font>", style_title),
+            Paragraph(f"<b>{val('PH.D SPORTS')}</b><br/><font size=9 color='#203D68'>RELATÓRIO DE AVALIAÇÃO FÍSICA</font>", style_title),
             Paragraph(f"<b>DATA:</b> {av.data_avaliacao.strftime('%d/%m/%Y')}<br/><b>PROTOCOLO:</b> Pollock 7 Dobras", style_sub),
         ]
     ]
@@ -402,7 +525,9 @@ def baixar_pdf_publico(token):
     header_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, -1), PHD_DARK),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+                ("BOX", (0, 0), (-1, -1), 0.8, PHD_BORDER),
+                ("LINEBELOW", (0, 0), (-1, -1), 3, PHD_ACCENT),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("TOPPADDING", (0, 0), (-1, -1), 10),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
@@ -422,7 +547,7 @@ def baixar_pdf_publico(token):
 
     resumo_data = [
         [
-            Paragraph(f"<b>ALUNO:</b> {aluno.nome.upper()}", style_cell),
+            Paragraph(f"<b>ALUNO:</b> {val(aluno.nome.upper())}", style_cell),
             Paragraph(f"<b>IDADE:</b> {aluno.idade} anos ({sexo_label})", style_cell),
             Paragraph(f"<b>PESO / ALTURA:</b> {av.peso} kg / {av.altura} m", style_cell),
         ],
@@ -468,7 +593,7 @@ def baixar_pdf_publico(token):
         evo_table.setStyle(
             TableStyle(
                 [
-                    ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECFCCB")),
+                    ("BACKGROUND", (0, 0), (-1, -1), PHD_LIGHT_ACCENT),
                     ("BOX", (0, 0), (-1, -1), 0.6, PHD_ACCENT),
                     ("PADDING", (0, 0), (-1, -1), 5),
                 ]
@@ -479,9 +604,6 @@ def baixar_pdf_publico(token):
 
     # Bloco 1: Anamnese
     elements.append(Paragraph("<b>1. ANAMNESE</b>", style_sec))
-
-    def val(v):
-        return str(v) if v not in (None, "") else "-"
 
     anam_data = [
         [Paragraph(f"<b>Objetivo:</b> {val(av.objetivo)}", style_cell), Paragraph(f"<b>Profissão:</b> {val(av.profissao)}", style_cell)],
@@ -524,7 +646,7 @@ def baixar_pdf_publico(token):
     circ_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), PHD_DARK),
+                ("BACKGROUND", (0, 0), (-1, 0), PHD_BLUE),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
@@ -549,7 +671,7 @@ def baixar_pdf_publico(token):
     dobras_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), PHD_DARK),
+                ("BACKGROUND", (0, 0), (-1, 0), PHD_BLUE),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),

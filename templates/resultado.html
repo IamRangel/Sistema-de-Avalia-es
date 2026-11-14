@@ -1,32 +1,110 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card" style="text-align: center;">
-    <h1 style="color: var(--phd-green);">Avaliação Concluída!</h1>
-    <p style="color: var(--text-muted);">Peça para <strong>{{ av.aluno.nome }}</strong> apontar a câmera do celular para baixar o PDF:</p>
-
-    <div class="qr-box">
-        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code da Avaliação" style="width: 220px; height: 220px; display: block;">
+<div class="card" data-clear-assessment-draft="{{ 'true' if clear_draft else 'false' }}" data-student-id="{{ av.aluno.id }}">
+    <div class="result-header">
+        <div>
+            <span class="result-kicker">Avaliação concluída</span>
+            <h1>{{ av.aluno.nome }}</h1>
+            <p class="result-date">Realizada em {{ av.data_avaliacao.strftime('%d/%m/%Y') }}{% if av_anterior %} · Comparada à avaliação de {{ av_anterior.data_avaliacao.strftime('%d/%m/%Y') }}{% endif %}</p>
+        </div>
+        <span class="result-kicker">PH.D SPORTS</span>
     </div>
 
-    <div class="live-metrics" style="max-width: 500px; margin: 12px auto;">
-        <div class="metric-box">
+    <p class="result-description">Este é um resumo dos principais indicadores registrados nesta avaliação.</p>
+
+    <div class="result-metrics">
+        <div class="result-metric">
+            <span>Peso</span>
+            <strong>{{ av.peso }} kg</strong>
+            {% if av_anterior %}<small>Anterior: {{ av_anterior.peso }} kg</small>{% endif %}
+        </div>
+        <div class="result-metric">
             <span>IMC</span>
-            <strong>{{ av.imc }}</strong>
+            <strong>{{ av.imc if av.imc is not none else 'N/I' }}</strong>
+            <small>{{ av.classificacao_imc or 'Classificação indisponível' }}</small>
         </div>
-        <div class="metric-box">
-            <span>% GORDURA</span>
-            <strong>{{ av.percentual_gordura ~ '%' if av.percentual_gordura else 'N/I' }}</strong>
+        <div class="result-metric">
+            <span>Gordura corporal estimada</span>
+            <strong>{{ av.percentual_gordura ~ '%' if av.percentual_gordura is not none else 'N/I' }}</strong>
+            {% if av_anterior and av_anterior.percentual_gordura is not none %}<small>Anterior: {{ av_anterior.percentual_gordura }}%</small>{% endif %}
         </div>
-        <div class="metric-box">
-            <span>MASSA MAGRA</span>
-            <strong>{{ av.massa_magra ~ ' kg' if av.massa_magra else 'N/I' }}</strong>
+        <div class="result-metric">
+            <span>Massa magra estimada</span>
+            <strong>{{ av.massa_magra ~ ' kg' if av.massa_magra is not none else 'N/I' }}</strong>
+            {% if av_anterior and av_anterior.massa_magra is not none %}<small>Anterior: {{ av_anterior.massa_magra }} kg</small>{% endif %}
         </div>
     </div>
 
-    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px;">
-        <a href="{{ url_for('baixar_pdf_publico', token=av.token) }}" class="btn">Baixar PDF Agora</a>
-        <a href="{{ url_for('perfil_aluno', aluno_id=av.aluno.id) }}" class="btn btn-outline">Ver Histórico do Aluno</a>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Voltar ao Início</a>
+    <p class="result-description">Os indicadores são estimativas baseadas nos dados e no protocolo registrados. Eles devem ser interpretados pelo professor dentro do contexto de cada aluno.</p>
+</div>
+
+{% if av_anterior %}
+<div class="card result-comparison">
+    <h2>Evolução desde a avaliação anterior</h2>
+    <div class="comparison-grid">
+        <div class="comparison-item">
+            <span>Peso</span>
+            {% set diferenca_peso = (av.peso - av_anterior.peso)|round(2) %}
+            <strong>{{ '+' if diferenca_peso > 0 else '' }}{{ diferenca_peso }} kg</strong>
+            <small>{{ av_anterior.peso }} kg → {{ av.peso }} kg</small>
+        </div>
+        {% if av.percentual_gordura is not none and av_anterior.percentual_gordura is not none %}
+        <div class="comparison-item">
+            <span>Gordura corporal estimada</span>
+            {% set diferenca_gordura = (av.percentual_gordura - av_anterior.percentual_gordura)|round(2) %}
+            <strong>{{ '+' if diferenca_gordura > 0 else '' }}{{ diferenca_gordura }} pontos percentuais</strong>
+            <small>{{ av_anterior.percentual_gordura }}% → {{ av.percentual_gordura }}%</small>
+        </div>
+        {% endif %}
+        {% if av.cintura is not none and av_anterior.cintura is not none %}
+        <div class="comparison-item">
+            <span>Cintura</span>
+            {% set diferenca_cintura = (av.cintura - av_anterior.cintura)|round(2) %}
+            <strong>{{ '+' if diferenca_cintura > 0 else '' }}{{ diferenca_cintura }} cm</strong>
+            <small>{{ av_anterior.cintura }} cm → {{ av.cintura }} cm</small>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% if historico|length > 1 %}
+<div class="card">
+    <h2>Evolução ao longo das avaliações</h2>
+    <p class="result-description">Cada gráfico mostra os registros anteriores a esta avaliação, em ordem cronológica.</p>
+    <div class="history-charts">
+        <section class="chart-card" data-history-chart data-field="peso" data-unit="kg">
+            <h3>Peso</h3>
+            <svg viewBox="0 0 640 220" role="img" aria-label="Gráfico de evolução do peso"></svg>
+        </section>
+        <section class="chart-card" data-history-chart data-field="percentual_gordura" data-unit="%">
+            <h3>Gordura corporal estimada</h3>
+            <svg viewBox="0 0 640 220" role="img" aria-label="Gráfico de evolução do percentual de gordura"></svg>
+        </section>
+    </div>
+    <script type="application/json" id="assessment-history">{{ historico|tojson }}</script>
+</div>
+{% endif %}
+
+{% if av.consideracoes %}
+<div class="card">
+    <h2>Considerações do professor</h2>
+    <div class="teacher-note">{{ av.consideracoes }}</div>
+</div>
+{% endif %}
+
+<div class="card report-share">
+    <div class="qr-box">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code para abrir o relatório em PDF" width="180" height="180">
+    </div>
+    <div>
+        <h2>Relatório completo</h2>
+        <p>Baixe o PDF ou leia o QR Code para abrir o relatório no celular.</p>
+        <div class="result-actions" style="margin-top: 16px;">
+            <a href="{{ url_for('baixar_pdf_publico', token=av.token) }}" class="btn">Baixar PDF</a>
+            <a href="{{ url_for('perfil_aluno', aluno_id=av.aluno.id) }}" class="btn btn-outline">Ver histórico</a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Voltar aos alunos</a>
+        </div>
     </div>
 </div>
 {% endblock %}
